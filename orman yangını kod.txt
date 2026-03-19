@@ -1,0 +1,149 @@
+import numpy as np
+import pandas as pd
+from sklearn.datasets import fetch_openml  # Boston veri setini yüklemek için
+from sklearn.tree import DecisionTreeRegressor, plot_tree  # Karar ağacı regresyon modeli ve görselleştirme fonksiyonu
+from sklearn.model_selection import train_test_split  # Eğitim/test verisi bölme
+import matplotlib.pyplot as plt  # Görselleştirme için
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score, explained_variance_score #gerekli metrikler
+from sklearn.metrics import explained_variance_score
+
+veri = pd.read_excel("C:/Users/ksmgn/OneDrive/Masaüstü/orman_yangini (2).xlsx")
+print("\nİlk 5 kayıt:")
+print(veri.head())
+
+
+print("\nVeri setindeki sütun bilgileri:")
+print(veri.info())
+
+
+print("\nİstatistiksel bilgiler")
+print(veri.describe())
+
+veri.rename(columns={
+    "Forest area (% of land area)": "forest_pct",
+    "Forest area (sq. km)": "forest_km2",
+    "Agricultural land (sq. km)": "agri_km2",
+    "Adjusted savings: carbon dioxide damage (% of GNI)": "co2_damage_pct_gni",
+    "Land area (sq. km)": "land_km2"
+}, inplace=True)
+
+
+# Country Name sütununu çıkart
+veri = veri.drop(columns=["Country Name"])
+
+X = veri[["agri_km2", "land_km2", "co2_damage_pct_gni"]]
+y = veri["forest_km2"]
+
+
+# test ve eğitim setine ayırma ve karar ağacı modelini oluşturma eğitme 
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
+
+clf = DecisionTreeRegressor(random_state=42)  # Modelin kararlı olması için random_state
+clf = clf.fit(X_train, y_train) 
+
+
+y_pred = clf.predict(X_test)
+# Modelin doğruluğunu ölçen metrikler
+mse = mean_squared_error(y_test, y_pred)
+rmse = mse ** 0.5  # Root Mean Squared Error
+mae = mean_absolute_error(y_test, y_pred)
+r2 = r2_score(y_test, y_pred)
+explained_variance = explained_variance_score(y_test, y_pred)
+
+
+
+print(f"\nİlk Model - Mean Squared Error (MSE): {mse:.2f}")
+print(f"İlk Model - Root Mean Squared Error (RMSE): {rmse:.2f}")
+print(f"İlk Model - Mean Absolute Error (MAE): {mae:.2f}")
+print(f"İlk Model - R^2 Skoru: {r2:.2f}")
+print(f"İlk Model - Explained Variance Score: {explained_variance:.2f}")
+
+
+
+plt.figure(figsize=(18,8))
+plot_tree(clf, filled=True, feature_names=X.columns, rounded=True)
+plt.title("Karar Ağacı (Regresyon)")
+plt.show()
+
+
+#0ptimizasyon
+plt.figure(figsize=(30, 16), dpi=300)  # Daha geniş ve yüksek çözünürlükte
+plot_tree(
+    clf,
+    filled=True,
+    feature_names=X.columns,  # Sadece özellik sütunları
+    rounded=True,
+    fontsize=12,
+    precision=2
+)
+plt.title("Karar Ağacı (Regresyon) - Yüksek Çözünürlük", fontsize=16)
+plt.tight_layout()
+plt.savefig("karar_agaci_yuksek_cozunurluk.png", dpi=300)
+plt.show()
+
+
+clf = DecisionTreeRegressor(
+    random_state=42,
+    max_depth=7,
+    min_samples_split=2,
+    min_samples_leaf=1,
+    max_features=None,
+    criterion="absolute_error"
+)
+
+clf = clf.fit(X_train, y_train)
+
+# 7. Test setiyle modelin doğruluğunu ölçme
+y_pred = clf.predict(X_test)
+# Modelin doğruluğunu ölçen metrikler
+mse = mean_squared_error(y_test, y_pred)
+rmse = mse ** 0.5  # Root Mean Squared Error
+mae = mean_absolute_error(y_test, y_pred)
+r2 = r2_score(y_test, y_pred)
+explained_variance = explained_variance_score(y_test, y_pred)
+
+# Sonuçları yazdır
+print(f"\nİlk Model - Mean Squared Error (MSE): {mse:.2f}")
+print(f"İlk Model - Root Mean Squared Error (RMSE): {rmse:.2f}")
+print(f"İlk Model - Mean Absolute Error (MAE): {mae:.2f}")
+print(f"İlk Model - R^2 Skoru: {r2:.2f}")
+print(f"İlk Model - Explained Variance Score: {explained_variance:.2f}")
+
+
+plt.figure(figsize=(10, 6))
+plot_tree(clf, filled=True, feature_names=veri.columns, rounded=True)
+plt.title("Karar Ağacı (Sınırlı Derinlik ve Diğer Parametrelerle) - Regresyon")
+plt.show()
+
+
+
+# 9. Her düğümdeki varyans (impurity) değerlerini yazdır
+print(f"\nModelde kullanılan kriter: {clf.criterion}")
+#Yani her bir bölünmede, ortalama karesel hata (Mean Squared Error - MSE) en aza indirilmeye çalışılıyor.
+#Ağaç, her bir düğümde veriyi ikiye ayırırken hangi bölmenin toplam hatayı (mse'yi) en çok azaltacağını hesaplıyor.
+print("\nHer düğümdeki impurity (Varyans):")
+print(clf.tree_.impurity)
+
+# 10. Her düğümde hangi özellik kullanılmış onu yazdır
+print("\nHer düğümdeki özellik indeksleri (split feature):")
+print(clf.tree_.feature)
+
+
+
+
+# 11. Her düğümdeki bilgi kazancı hesaplaması
+print("\nHer düğümdeki Bilgi Kazancı:")
+for node in range(clf.tree_.node_count):
+    if clf.tree_.children_left[node] != clf.tree_.children_right[node]:
+        impurity_before = clf.tree_.impurity[node]
+        impurity_left = clf.tree_.impurity[clf.tree_.children_left[node]]
+        impurity_right = clf.tree_.impurity[clf.tree_.children_right[node]]
+
+        n_samples_left = clf.tree_.n_node_samples[clf.tree_.children_left[node]]
+        n_samples_right = clf.tree_.n_node_samples[clf.tree_.children_right[node]]
+
+        weighted_impurity = (n_samples_left / (n_samples_left + n_samples_right)) * impurity_left + \
+                            (n_samples_right / (n_samples_left + n_samples_right)) * impurity_right
+        information_gain = impurity_before - weighted_impurity
+
+        print(f"Düğüm {node}: Bilgi Kazancı = {information_gain:.4f}")
